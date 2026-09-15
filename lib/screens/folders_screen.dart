@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/folder.dart';
+import '../models/note_item.dart';
+import 'note_editor_screen.dart';
 
 enum _FolderAction { rename, delete }
+
+enum _NoteAction { edit, delete }
 
 class FoldersScreen extends StatefulWidget {
   const FoldersScreen({super.key});
@@ -13,15 +17,16 @@ class FoldersScreen extends StatefulWidget {
 
 class _FoldersScreenState extends State<FoldersScreen> {
   final List<Folder> _folders = [];
+  final List<NoteItem> _notes = [];
   final List<String> _folderPath = [];
   int _nextFolderId = 1;
+  int _nextNoteId = 1;
 
   String? get _currentFolderId => _folderPath.isEmpty ? null : _folderPath.last;
 
   Folder? get _currentFolder {
     final currentId = _currentFolderId;
     if (currentId == null) return null;
-
     for (final folder in _folders) {
       if (folder.id == currentId) return folder;
     }
@@ -30,6 +35,12 @@ class _FoldersScreenState extends State<FoldersScreen> {
 
   List<Folder> get _visibleFolders =>
       _folders.where((folder) => folder.parentId == _currentFolderId).toList();
+
+  List<NoteItem> get _visibleNotes {
+    final folderId = _currentFolderId;
+    if (folderId == null) return [];
+    return _notes.where((note) => note.folderId == folderId).toList();
+  }
 
   Future<String?> _askForFolderName({String initialName = ''}) {
     return showDialog<String>(
@@ -41,7 +52,6 @@ class _FoldersScreenState extends State<FoldersScreen> {
   Future<void> _createFolder() async {
     final name = await _askForFolderName();
     if (name == null || !mounted) return;
-
     setState(() {
       _folders.add(
         Folder(
@@ -56,10 +66,8 @@ class _FoldersScreenState extends State<FoldersScreen> {
   Future<void> _renameFolder(Folder folder) async {
     final name = await _askForFolderName(initialName: folder.name);
     if (name == null || !mounted) return;
-
     final index = _folders.indexWhere((item) => item.id == folder.id);
     if (index == -1) return;
-
     setState(() {
       _folders[index] = Folder(
         id: folder.id,
@@ -75,7 +83,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete folder?'),
         content: Text(
-          'Delete “${folder.name}”? Any subfolders inside it will also be deleted.',
+          'Delete “${folder.name}”? Its subfolders and notes will also be deleted.',
         ),
         actions: [
           TextButton(
@@ -89,12 +97,11 @@ class _FoldersScreenState extends State<FoldersScreen> {
         ],
       ),
     );
-
     if (shouldDelete != true || !mounted) return;
+
     setState(() {
       final idsToDelete = <String>{folder.id};
       var foundChild = true;
-
       while (foundChild) {
         foundChild = false;
         for (final item in _folders) {
@@ -105,17 +112,89 @@ class _FoldersScreenState extends State<FoldersScreen> {
           }
         }
       }
-
       _folders.removeWhere((item) => idsToDelete.contains(item.id));
+      _notes.removeWhere((note) => idsToDelete.contains(note.folderId));
     });
   }
 
-  Future<void> _handleAction(_FolderAction action, Folder folder) async {
+  Future<void> _createNote() async {
+    final folderId = _currentFolderId;
+    if (folderId == null) return;
+    final result = await Navigator.push<NoteEditorResult>(
+      context,
+      MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _notes.add(
+        NoteItem(
+          id: 'note-${_nextNoteId++}',
+          folderId: folderId,
+          title: result.title,
+          body: result.body,
+        ),
+      );
+    });
+  }
+
+  Future<void> _editNote(NoteItem note) async {
+    final result = await Navigator.push<NoteEditorResult>(
+      context,
+      MaterialPageRoute(builder: (_) => NoteEditorScreen(note: note)),
+    );
+    if (result == null || !mounted) return;
+    final index = _notes.indexWhere((item) => item.id == note.id);
+    if (index == -1) return;
+
+    setState(() {
+      _notes[index] = NoteItem(
+        id: note.id,
+        folderId: note.folderId,
+        title: result.title,
+        body: result.body,
+      );
+    });
+  }
+
+  Future<void> _deleteNote(NoteItem note) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete note?'),
+        content: Text('Delete “${note.title}”?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete == true && mounted) {
+      setState(() => _notes.removeWhere((item) => item.id == note.id));
+    }
+  }
+
+  Future<void> _handleFolderAction(_FolderAction action, Folder folder) async {
     switch (action) {
       case _FolderAction.rename:
         await _renameFolder(folder);
       case _FolderAction.delete:
         await _deleteFolder(folder);
+    }
+  }
+
+  Future<void> _handleNoteAction(_NoteAction action, NoteItem note) async {
+    switch (action) {
+      case _NoteAction.edit:
+        await _editNote(note);
+      case _NoteAction.delete:
+        await _deleteNote(note);
     }
   }
 
@@ -130,91 +209,153 @@ class _FoldersScreenState extends State<FoldersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleFolders = _visibleFolders;
+    final folders = _visibleFolders;
+    final notes = _visibleNotes;
     final currentFolder = _currentFolder;
 
     return Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 16, 24, 12),
-            child: Row(
-              children: [
-                if (currentFolder != null)
-                  IconButton(
-                    onPressed: _goBack,
-                    tooltip: 'Back to parent folder',
-                    icon: const Icon(Icons.arrow_back),
-                  )
-                else
-                  const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    currentFolder?.name ?? 'Folders',
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildHeader(context, currentFolder),
           Expanded(
-            child: visibleFolders.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Text(
-                        currentFolder == null
-                            ? 'No folders yet. Create one to organize your notes.'
-                            : 'No subfolders yet. Create one inside this folder.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-                    itemCount: visibleFolders.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final folder = visibleFolders[index];
-                      return ListTile(
-                        key: ValueKey(folder.id),
-                        onTap: () => _openFolder(folder),
-                        leading: const Icon(Icons.folder_outlined),
-                        title: Text(folder.name),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.chevron_right),
-                            PopupMenuButton<_FolderAction>(
-                              tooltip: 'Folder options',
-                              onSelected: (action) =>
-                                  _handleAction(action, folder),
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  value: _FolderAction.rename,
-                                  child: Text('Rename'),
-                                ),
-                                PopupMenuItem(
-                                  value: _FolderAction.delete,
-                                  child: Text('Delete'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+            child: folders.isEmpty && notes.isEmpty
+                ? _buildEmptyState(currentFolder)
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                    children: [
+                      if (folders.isNotEmpty) ...[
+                        const _SectionHeading('Subfolders'),
+                        ...folders.map(_buildFolderTile),
+                      ],
+                      if (notes.isNotEmpty) ...[
+                        const _SectionHeading('Notes'),
+                        ...notes.map(_buildNoteTile),
+                      ],
+                    ],
                   ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createFolder,
-        icon: const Icon(Icons.create_new_folder_outlined),
-        label: const Text('New folder'),
+      floatingActionButton: currentFolder == null
+          ? FloatingActionButton.extended(
+              onPressed: _createFolder,
+              icon: const Icon(Icons.create_new_folder_outlined),
+              label: const Text('New folder'),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'new-subfolder',
+                  onPressed: _createFolder,
+                  tooltip: 'New subfolder',
+                  child: const Icon(Icons.create_new_folder_outlined),
+                ),
+                const SizedBox(width: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'new-note',
+                  onPressed: _createNote,
+                  icon: const Icon(Icons.note_add_outlined),
+                  label: const Text('New note'),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, Folder? currentFolder) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 16, 24, 12),
+      child: Row(
+        children: [
+          if (currentFolder != null)
+            IconButton(
+              onPressed: _goBack,
+              tooltip: 'Back to parent folder',
+              icon: const Icon(Icons.arrow_back),
+            )
+          else
+            const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              currentFolder?.name ?? 'Folders',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildEmptyState(Folder? currentFolder) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Text(
+          currentFolder == null
+              ? 'No folders yet. Create one to organize your notes.'
+              : 'This folder is empty. Add a note or subfolder.',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderTile(Folder folder) {
+    return ListTile(
+      key: ValueKey(folder.id),
+      onTap: () => _openFolder(folder),
+      leading: const Icon(Icons.folder_outlined),
+      title: Text(folder.name),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.chevron_right),
+          PopupMenuButton<_FolderAction>(
+            tooltip: 'Folder options',
+            onSelected: (action) => _handleFolderAction(action, folder),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: _FolderAction.rename, child: Text('Rename')),
+              PopupMenuItem(value: _FolderAction.delete, child: Text('Delete')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoteTile(NoteItem note) {
+    final preview = note.body.trim().isEmpty ? 'Empty note' : note.body.trim();
+    return ListTile(
+      key: ValueKey(note.id),
+      onTap: () => _editNote(note),
+      leading: const Icon(Icons.description_outlined),
+      title: Text(note.title),
+      subtitle: Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+      trailing: PopupMenuButton<_NoteAction>(
+        tooltip: 'Note options',
+        onSelected: (action) => _handleNoteAction(action, note),
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: _NoteAction.edit, child: Text('Edit')),
+          PopupMenuItem(value: _NoteAction.delete, child: Text('Delete')),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(label, style: Theme.of(context).textTheme.titleSmall),
     );
   }
 }

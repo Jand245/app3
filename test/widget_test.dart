@@ -63,9 +63,9 @@ void main() {
 
     await tester.tap(find.text('CSC 4103'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('No subfolders yet'), findsOneWidget);
+    expect(find.textContaining('This folder is empty'), findsOneWidget);
 
-    await tester.tap(find.text('New folder'));
+    await tester.tap(find.byTooltip('New subfolder'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Project');
     await tester.tap(find.text('Save'));
@@ -78,5 +78,55 @@ void main() {
 
     expect(find.text('CSC 4103'), findsOneWidget);
     expect(find.text('Project'), findsNothing);
+  });
+
+  testWidgets('creates, edits, and deletes a note inside a folder', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: FoldersScreen()));
+
+    await tester.tap(find.text('New folder'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'CSC 4103');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CSC 4103'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('note-title-field')),
+      'Project ideas',
+    );
+    await tester.enterText(
+      find.byKey(const Key('note-body-field')),
+      'Build the folder screen first.',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Project ideas'), findsOneWidget);
+    expect(find.text('Build the folder screen first.'), findsOneWidget);
+
+    await tester.tap(find.text('Project ideas'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('note-title-field')),
+      'Updated project ideas',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Updated project ideas'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Note options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('This folder is empty'), findsOneWidget);
   });
 }
