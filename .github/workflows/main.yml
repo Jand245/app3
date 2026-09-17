@@ -1,6 +1,7 @@
 name: 🛠 Android CI / Build & Release APK
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, master, upgrade ]
     tags:    [ 'v*.*.*' ]
