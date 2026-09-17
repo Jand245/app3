@@ -1,17 +1,104 @@
 import 'package:flutter/material.dart';
 
-import 'placeholder_page.dart';
+import '../models/app_data_store.dart';
+import '../models/assignment_item.dart';
+import '../models/note_item.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    required this.store,
+    required this.onOpenAssignment,
+    required this.onOpenNote,
+    super.key,
+  });
+
+  final AppDataStore store;
+  final ValueChanged<AssignmentItem> onOpenAssignment;
+  final ValueChanged<NoteItem> onOpenNote;
+
+  List<AssignmentItem> get _dueSoon {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month, now.day + 6);
+    final assignments = store.assignments.where(
+      (assignment) =>
+          !assignment.dueDate.isBefore(now) && assignment.dueDate.isBefore(end),
+    );
+    return assignments.toList()..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const PlaceholderPage(
-      title: 'Home',
-      icon: Icons.note_add_outlined,
-      message:
-          'Upcoming assignments and quick access to notes will appear here.',
+    final dueSoon = _dueSoon;
+    final recentNotes = store.recentNotes;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 96),
+      children: [
+        Text('Home', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Text('Assignments', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(width: 10),
+            const Chip(
+              avatar: Icon(Icons.schedule, size: 16),
+              label: Text('Due Soon'),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (dueSoon.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Nothing is due in the next five days.'),
+            ),
+          )
+        else
+          ...dueSoon.map(
+            (assignment) => Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  radius: 7,
+                  backgroundColor: Color(assignment.colorValue),
+                ),
+                title: Text(assignment.title),
+                subtitle: Text(assignment.course),
+                trailing: Text(
+                  '${assignment.dueDate.month}/${assignment.dueDate.day}',
+                ),
+                onTap: () => onOpenAssignment(assignment),
+              ),
+            ),
+          ),
+        const SizedBox(height: 28),
+        Text('Recent notes', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        if (recentNotes.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Open a note and it will appear here.'),
+            ),
+          )
+        else
+          ...recentNotes.map(
+            (note) => Card(
+              child: ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: Text(note.title),
+                subtitle: Text(
+                  store.folderPath(note.folderId),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => onOpenNote(note),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

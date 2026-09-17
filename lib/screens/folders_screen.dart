@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_data_store.dart';
 import '../models/folder.dart';
 import '../models/note_item.dart';
 import 'note_editor_screen.dart';
@@ -9,37 +10,54 @@ enum _FolderAction { rename, delete }
 enum _NoteAction { edit, delete }
 
 class FoldersScreen extends StatefulWidget {
-  const FoldersScreen({super.key});
+  const FoldersScreen({required this.store, super.key});
+
+  final AppDataStore store;
 
   @override
-  State<FoldersScreen> createState() => _FoldersScreenState();
+  State<FoldersScreen> createState() => FoldersScreenState();
 }
 
-class _FoldersScreenState extends State<FoldersScreen> {
-  final List<Folder> _folders = [];
-  final List<NoteItem> _notes = [];
+class FoldersScreenState extends State<FoldersScreen> {
   final List<String> _folderPath = [];
-  int _nextFolderId = 1;
-  int _nextNoteId = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_handleStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_handleStoreChanged);
+    super.dispose();
+  }
+
+  void _handleStoreChanged() {
+    if (mounted) setState(() {});
+  }
 
   String? get _currentFolderId => _folderPath.isEmpty ? null : _folderPath.last;
 
   Folder? get _currentFolder {
     final currentId = _currentFolderId;
     if (currentId == null) return null;
-    for (final folder in _folders) {
+    for (final folder in widget.store.folders) {
       if (folder.id == currentId) return folder;
     }
     return null;
   }
 
-  List<Folder> get _visibleFolders =>
-      _folders.where((folder) => folder.parentId == _currentFolderId).toList();
+  List<Folder> get _visibleFolders => widget.store.folders
+      .where((folder) => folder.parentId == _currentFolderId)
+      .toList();
 
   List<NoteItem> get _visibleNotes {
     final folderId = _currentFolderId;
     if (folderId == null) return [];
-    return _notes.where((note) => note.folderId == folderId).toList();
+    return widget.store.notes
+        .where((note) => note.folderId == folderId)
+        .toList();
   }
 
   Future<String?> _askForFolderName({String initialName = ''}) {
@@ -52,29 +70,15 @@ class _FoldersScreenState extends State<FoldersScreen> {
   Future<void> _createFolder() async {
     final name = await _askForFolderName();
     if (name == null || !mounted) return;
-    setState(() {
-      _folders.add(
-        Folder(
-          id: 'folder-${_nextFolderId++}',
-          name: name,
-          parentId: _currentFolderId,
-        ),
-      );
-    });
+    widget.store.addFolder(name, _currentFolderId);
   }
 
   Future<void> _renameFolder(Folder folder) async {
     final name = await _askForFolderName(initialName: folder.name);
     if (name == null || !mounted) return;
-    final index = _folders.indexWhere((item) => item.id == folder.id);
-    if (index == -1) return;
-    setState(() {
-      _folders[index] = Folder(
-        id: folder.id,
-        name: name,
-        parentId: folder.parentId,
-      );
-    });
+    widget.store.updateFolder(
+      Folder(id: folder.id, name: name, parentId: folder.parentId),
+    );
   }
 
   Future<void> _deleteFolder(Folder folder) async {
@@ -99,22 +103,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
     );
     if (shouldDelete != true || !mounted) return;
 
-    setState(() {
-      final idsToDelete = <String>{folder.id};
-      var foundChild = true;
-      while (foundChild) {
-        foundChild = false;
-        for (final item in _folders) {
-          if (item.parentId != null &&
-              idsToDelete.contains(item.parentId) &&
-              idsToDelete.add(item.id)) {
-            foundChild = true;
-          }
-        }
-      }
-      _folders.removeWhere((item) => idsToDelete.contains(item.id));
-      _notes.removeWhere((note) => idsToDelete.contains(note.folderId));
-    });
+    widget.store.deleteFolderTree(folder.id);
   }
 
   Future<void> _createNote() async {
@@ -126,35 +115,24 @@ class _FoldersScreenState extends State<FoldersScreen> {
     );
     if (result == null || !mounted) return;
 
-    setState(() {
-      _notes.add(
-        NoteItem(
-          id: 'note-${_nextNoteId++}',
-          folderId: folderId,
-          title: result.title,
-          body: result.body,
-        ),
-      );
-    });
+    widget.store.addNote(folderId, result.title, result.body);
   }
 
   Future<void> _editNote(NoteItem note) async {
+    widget.store.markNoteAccessed(note.id);
     final result = await Navigator.push<NoteEditorResult>(
       context,
       MaterialPageRoute(builder: (_) => NoteEditorScreen(note: note)),
     );
     if (result == null || !mounted) return;
-    final index = _notes.indexWhere((item) => item.id == note.id);
-    if (index == -1) return;
-
-    setState(() {
-      _notes[index] = NoteItem(
+    widget.store.updateNote(
+      NoteItem(
         id: note.id,
         folderId: note.folderId,
         title: result.title,
         body: result.body,
-      );
-    });
+      ),
+    );
   }
 
   Future<void> _deleteNote(NoteItem note) async {
@@ -176,7 +154,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
       ),
     );
     if (shouldDelete == true && mounted) {
-      setState(() => _notes.removeWhere((item) => item.id == note.id));
+      widget.store.deleteNote(note.id);
     }
   }
 
@@ -202,6 +180,25 @@ class _FoldersScreenState extends State<FoldersScreen> {
     setState(() => _folderPath.add(folder.id));
   }
 
+  void openFolder(Folder folder) {
+    final path = <String>[];
+    Folder? current = folder;
+    while (current != null) {
+      path.insert(0, current.id);
+      final parentId = current.parentId;
+      current = parentId == null
+          ? null
+          : widget.store.folders
+                .where((item) => item.id == parentId)
+                .firstOrNull;
+    }
+    setState(() {
+      _folderPath
+        ..clear()
+        ..addAll(path);
+    });
+  }
+
   void _goBack() {
     if (_folderPath.isEmpty) return;
     setState(() => _folderPath.removeLast());
@@ -225,7 +222,8 @@ class _FoldersScreenState extends State<FoldersScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                     children: [
                       if (folders.isNotEmpty) ...[
-                        const _SectionHeading('Subfolders'),
+                        if (currentFolder != null)
+                          const _SectionHeading('Subfolders'),
                         ...folders.map(_buildFolderTile),
                       ],
                       if (notes.isNotEmpty) ...[
