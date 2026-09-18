@@ -1,12 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/note_item.dart';
+import 'camerascreen.dart';
 
 class NoteEditorResult {
-  const NoteEditorResult({required this.title, required this.body});
+  const NoteEditorResult({
+    required this.title,
+    required this.body,
+    this.imagePaths = const [],
+  });
 
   final String title;
   final String body;
+  final List<String> imagePaths;
 }
 
 class NoteEditorScreen extends StatefulWidget {
@@ -21,23 +29,27 @@ class NoteEditorScreen extends StatefulWidget {
 class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
-  late final String _initialTitle;
-  late final String _initialBody;
-  bool _allowPop = false;
+late final List<String> _imagePaths;
+late final String _initialTitle;
+late final String _initialBody;
+bool _allowPop = false;
 
-  bool get _hasUnsavedChanges =>
-      _titleController.text != _initialTitle ||
-      _bodyController.text != _initialBody;
+bool get _hasUnsavedChanges =>
+    _titleController.text != _initialTitle ||
+    _bodyController.text != _initialBody;
 
   @override
   void initState() {
     super.initState();
-    _initialTitle = widget.note?.title ?? '';
-    _initialBody = widget.note?.body ?? '';
-    _titleController = TextEditingController(text: _initialTitle)
-      ..addListener(_handleTextChanged);
-    _bodyController = TextEditingController(text: _initialBody)
-      ..addListener(_handleTextChanged);
+_initialTitle = widget.note?.title ?? '';
+_initialBody = widget.note?.body ?? '';
+
+_titleController = TextEditingController(text: _initialTitle)
+  ..addListener(_handleTextChanged);
+_bodyController = TextEditingController(text: _initialBody)
+  ..addListener(_handleTextChanged);
+
+_imagePaths = List<String>.from(widget.note?.imagePaths ?? const []);
   }
 
   @override
@@ -86,54 +98,120 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       NoteEditorResult(
         title: title.isEmpty ? 'Untitled note' : title,
         body: _bodyController.text,
+        imagePaths: _imagePaths,
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return PopScope<NoteEditorResult>(
-      canPop: _allowPop || !_hasUnsavedChanges,
-      onPopInvokedWithResult: _handlePop,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.note == null ? 'New note' : 'Edit note'),
-          actions: [
-            TextButton(onPressed: _save, child: const Text('Save')),
-            const SizedBox(width: 8),
-          ],
-        ),
-        body: Column(
-          children: [
-            Material(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              child: SingleChildScrollView(
+
+@override
+Widget build(BuildContext context) {
+  return PopScope<NoteEditorResult>(
+    canPop: _allowPop || !_hasUnsavedChanges,
+    onPopInvokedWithResult: _handlePop,
+    child: Scaffold(
+      appBar: AppBar(
+        title: Text(widget.note == null ? 'New note' : 'Edit note'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.camera_alt),
+            tooltip: 'Add photo',
+            onPressed: () async {
+              final path = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(builder: (_) => const CameraScreen()),
+              );
+
+              if (path != null) {
+                setState(() {
+                  _imagePaths.add(path);
+                });
+              }
+            },
+          ),
+          TextButton(onPressed: _save, child: const Text('Save')),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: const [
+                  _UpcomingFormatButton(
+                    icon: Icons.title,
+                    label: 'Headings coming next',
+                  ),
+                  _UpcomingFormatButton(
+                    icon: Icons.format_color_text,
+                    label: 'Text color coming next',
+                  ),
+                  _UpcomingFormatButton(
+                    icon: Icons.format_color_fill,
+                    label: 'Highlight coming next',
+                  ),
+                  _UpcomingFormatButton(
+                    icon: Icons.draw_outlined,
+                    label: 'Pen tool coming next',
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Photo thumbnails (only shows when there's at least one image)
+          if (_imagePaths.isNotEmpty)
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: const [
-                    _UpcomingFormatButton(
-                      icon: Icons.title,
-                      label: 'Headings coming next',
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: _imagePaths.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(_imagePaths[index]),
+                        width: 84,
+                        height: 84,
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                    _UpcomingFormatButton(
-                      icon: Icons.format_color_text,
-                      label: 'Text color coming next',
-                    ),
-                    _UpcomingFormatButton(
-                      icon: Icons.format_color_fill,
-                      label: 'Highlight coming next',
-                    ),
-                    _UpcomingFormatButton(
-                      icon: Icons.draw_outlined,
-                      label: 'Pen tool coming next',
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: () =>
+                            setState(() => _imagePaths.removeAt(index)),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(2),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              
+            
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: TextField(
                 key: const Key('note-title-field'),
                 controller: _titleController,
