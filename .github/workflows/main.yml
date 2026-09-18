@@ -1,4 +1,4 @@
-name: Flutter CI, Builds, and Web Deploy
+name: Flutter CI and Builds
 
 on:
   push:
@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -58,7 +56,7 @@ jobs:
         run: flutter build apk --release
 
       - name: Build web app
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+        run: flutter build web --release
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v7
@@ -73,27 +71,3 @@ jobs:
           name: web-build
           path: build/web
           if-no-files-found: error
-
-      - name: Configure GitHub Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-
-      - name: Upload GitHub Pages artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: build/web
-
-  deploy-pages:
-    name: Deploy GitHub Pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: validate-and-build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy website
-        id: deployment
-        uses: actions/deploy-pages@v4
