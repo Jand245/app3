@@ -137,6 +137,7 @@ class _AssignmentCreateScreenState extends State<AssignmentCreateScreen> {
         dueDate: dueDate,
         colorValue: _selectedColor.toARGB32(),
         attachments: List.unmodifiable(_attachments),
+        completedAt: widget.assignment?.completedAt,
       ),
     );
   }

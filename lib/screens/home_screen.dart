@@ -21,7 +21,9 @@ class HomeScreen extends StatelessWidget {
     final end = DateTime(now.year, now.month, now.day + 6);
     final assignments = store.assignments.where(
       (assignment) =>
-          !assignment.dueDate.isBefore(now) && assignment.dueDate.isBefore(end),
+          !assignment.isCompleted &&
+          !assignment.dueDate.isBefore(now) &&
+          assignment.dueDate.isBefore(end),
     );
     return assignments.toList()..sort((a, b) => a.dueDate.compareTo(b.dueDate));
   }

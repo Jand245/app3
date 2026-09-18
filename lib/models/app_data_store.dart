@@ -26,7 +26,10 @@ class AppDataStore extends ChangeNotifier {
   static Future<AppDataStore> load(LocalDataStorage storage) async {
     final store = AppDataStore(storage: storage);
     final contents = await storage.read();
-    if (contents == null) return store;
+    if (contents == null || contents.trim().isEmpty) {
+      await storage.write(jsonEncode(store._toJson()));
+      return store;
+    }
 
     final data = jsonDecode(contents) as Map<String, dynamic>;
     if (data['version'] != 1) {
@@ -34,7 +37,7 @@ class AppDataStore extends ChangeNotifier {
     }
 
     store.folders.addAll(
-      (data['folders'] as List).map((value) {
+      (data['folders'] as List? ?? const []).map((value) {
         final folder = value as Map<String, dynamic>;
         return Folder(
           id: folder['id'] as String,
@@ -44,7 +47,7 @@ class AppDataStore extends ChangeNotifier {
       }),
     );
     store.notes.addAll(
-      (data['notes'] as List).map((value) {
+      (data['notes'] as List? ?? const []).map((value) {
         final note = value as Map<String, dynamic>;
         return NoteItem(
           id: note['id'] as String,
@@ -55,16 +58,21 @@ class AppDataStore extends ChangeNotifier {
       }),
     );
     store.assignments.addAll(
-      (data['assignments'] as List).map((value) {
+      (data['assignments'] as List? ?? const []).map((value) {
         final assignment = value as Map<String, dynamic>;
         return AssignmentItem(
           id: assignment['id'] as String,
           title: assignment['title'] as String,
           course: assignment['course'] as String,
-          requirements: assignment['requirements'] as String,
+          requirements: assignment['requirements'] as String? ?? '',
           dueDate: DateTime.parse(assignment['dueDate'] as String),
-          colorValue: assignment['colorValue'] as int,
-          attachments: (assignment['attachments'] as List).map((value) {
+          colorValue: assignment['colorValue'] as int? ?? 0xff3f51b5,
+          completedAt: assignment['completedAt'] == null
+              ? null
+              : DateTime.parse(assignment['completedAt'] as String),
+          attachments: (assignment['attachments'] as List? ?? const []).map((
+            value,
+          ) {
             final attachment = value as Map<String, dynamic>;
             return AssignmentAttachment(
               name: attachment['name'] as String,
@@ -75,13 +83,27 @@ class AppDataStore extends ChangeNotifier {
       }),
     );
     store._recentNoteIds.addAll(
-      (data['recentNoteIds'] as List).cast<String>().where(
+      (data['recentNoteIds'] as List? ?? const []).cast<String>().where(
         (id) => store.notes.any((note) => note.id == id),
       ),
     );
-    store._nextFolderId = data['nextFolderId'] as int;
-    store._nextNoteId = data['nextNoteId'] as int;
+    store._nextFolderId =
+        data['nextFolderId'] as int? ??
+        _nextNumericId(store.folders.map((folder) => folder.id), 'folder-');
+    store._nextNoteId =
+        data['nextNoteId'] as int? ??
+        _nextNumericId(store.notes.map((note) => note.id), 'note-');
     return store;
+  }
+
+  static int _nextNumericId(Iterable<String> ids, String prefix) {
+    var largestId = 0;
+    for (final id in ids) {
+      if (!id.startsWith(prefix)) continue;
+      final number = int.tryParse(id.substring(prefix.length));
+      if (number != null && number > largestId) largestId = number;
+    }
+    return largestId + 1;
   }
 
   Future<void> flush() => _lastWrite;
@@ -132,6 +154,7 @@ class AppDataStore extends ChangeNotifier {
           'requirements': assignment.requirements,
           'dueDate': assignment.dueDate.toIso8601String(),
           'colorValue': assignment.colorValue,
+          'completedAt': assignment.completedAt?.toIso8601String(),
           'attachments': [
             for (final attachment in assignment.attachments)
               {'name': attachment.name, 'path': attachment.path},
@@ -222,6 +245,11 @@ class AppDataStore extends ChangeNotifier {
     final index = assignments.indexWhere((item) => item.id == assignment.id);
     if (index == -1) return;
     assignments[index] = assignment;
+    notifyListeners();
+  }
+
+  void deleteAssignment(String assignmentId) {
+    assignments.removeWhere((assignment) => assignment.id == assignmentId);
     notifyListeners();
   }
 
