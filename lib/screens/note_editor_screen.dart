@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/note_item.dart';
+import 'camera_screen.dart';
 
 class NoteEditorResult {
   const NoteEditorResult({required this.title, required this.body});
@@ -21,12 +22,14 @@ class NoteEditorScreen extends StatefulWidget {
 class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
+  late final List<String> _imagePaths; 
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.note?.title ?? '');
     _bodyController = TextEditingController(text: widget.note?.body ?? '');
+    _imagePaths = List<String>.from(widget.note?.imagePaths ?? const []);
   }
 
   @override
@@ -51,12 +54,26 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.note == null ? 'New note' : 'Edit note'),
-        actions: [
-          TextButton(onPressed: _save, child: const Text('Save')),
-          const SizedBox(width: 8),
-        ],
-      ),
+  title: Text(widget.note == null ? 'New note' : 'Edit note'),
+  actions: [
+    IconButton(   
+      icon: const Icon(Icons.camera_alt),
+      onPressed: () async {
+        final path = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(builder: (_) => const CameraScreen()),
+        );
+        if (path != null) {
+          setState(() {
+            _imagePaths.add(path);
+          });
+        }
+      },
+    ),
+    TextButton(onPressed: _save, child: const Text('Save')),
+    const SizedBox(width: 8),
+  ],
+  ),
       body: Column(
         children: [
           Material(
