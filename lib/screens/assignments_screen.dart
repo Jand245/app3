@@ -52,10 +52,19 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   List<AssignmentItem> get _weeklyAssignments {
     final assignments = _assignments.where(
       (assignment) =>
+          !assignment.isCompleted &&
           !assignment.dueDate.isBefore(_weekStart) &&
           assignment.dueDate.isBefore(_weekEnd),
     );
     return assignments.toList()..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+  }
+
+  List<AssignmentItem> get _previousAssignments {
+    final assignments = _assignments.where(
+      (assignment) => assignment.isCompleted,
+    );
+    return assignments.toList()
+      ..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
   }
 
   @override
@@ -97,26 +106,34 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         builder: (_) => MonthlyCalendarView(
           assignments: List.unmodifiable(_assignments),
           onAssignmentChanged: _replaceAssignment,
+          onAssignmentDeleted: widget.store.deleteAssignment,
         ),
       ),
     );
   }
 
   Future<void> _openAssignment(AssignmentItem assignment) async {
-    final updatedAssignment = await Navigator.push<AssignmentItem>(
+    final result = await Navigator.push<AssignmentDetailResult>(
       context,
       MaterialPageRoute(
         builder: (_) => AssignmentDetailScreen(assignment: assignment),
       ),
     );
-    if (updatedAssignment != null && mounted) {
+    if (result == null || !mounted) return;
+    final updatedAssignment = result.assignment;
+    if ((result.action == AssignmentDetailAction.updated ||
+            result.action == AssignmentDetailAction.finished) &&
+        updatedAssignment != null) {
       _replaceAssignment(updatedAssignment);
+    } else {
+      widget.store.deleteAssignment(assignment.id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final weeklyAssignments = _weeklyAssignments;
+    final previousAssignments = _previousAssignments;
 
     return Scaffold(
       body: ListView(
@@ -138,6 +155,15 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
             )
           else
             ...weeklyAssignments.map(_buildAssignmentTile),
+          if (previousAssignments.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            Text(
+              'Previous assignments',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            ...previousAssignments.map(_buildPreviousAssignmentTile),
+          ],
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -151,6 +177,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
   List<AssignmentItem> _assignmentsForDay(DateTime day) {
     return _assignments.where((assignment) {
+      if (assignment.isCompleted) return false;
       final dueDate = assignment.dueDate;
 
       return dueDate.year == day.year &&
@@ -258,6 +285,24 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
           '${TimeOfDay.fromDateTime(assignment.dueDate).format(context)}',
           textAlign: TextAlign.end,
         ),
+        onTap: () => _openAssignment(assignment),
+      ),
+    );
+  }
+
+  Widget _buildPreviousAssignmentTile(AssignmentItem assignment) {
+    final completedAt = assignment.completedAt!;
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.check_circle_outline),
+        title: Text(assignment.title),
+        subtitle: Text(
+          '${assignment.course}\n'
+          'Due ${assignment.dueDate.month}/${assignment.dueDate.day}/${assignment.dueDate.year} · '
+          'Completed ${completedAt.month}/${completedAt.day}/${completedAt.year}',
+        ),
+        isThreeLine: true,
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => _openAssignment(assignment),
       ),
     );

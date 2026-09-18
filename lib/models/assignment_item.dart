@@ -14,6 +14,7 @@ class AssignmentItem {
     required this.dueDate,
     required this.colorValue,
     this.attachments = const [],
+    this.completedAt,
   });
 
   final String id;
@@ -23,4 +24,20 @@ class AssignmentItem {
   final DateTime dueDate;
   final int colorValue;
   final List<AssignmentAttachment> attachments;
+  final DateTime? completedAt;
+
+  bool get isCompleted => completedAt != null;
+
+  AssignmentItem copyWith({DateTime? completedAt}) {
+    return AssignmentItem(
+      id: id,
+      title: title,
+      course: course,
+      requirements: requirements,
+      dueDate: dueDate,
+      colorValue: colorValue,
+      attachments: attachments,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
 }

@@ -8,11 +8,13 @@ class MonthlyCalendarView extends StatefulWidget {
   const MonthlyCalendarView({
     required this.assignments,
     required this.onAssignmentChanged,
+    required this.onAssignmentDeleted,
     super.key,
   });
 
   final List<AssignmentItem> assignments;
   final ValueChanged<AssignmentItem> onAssignmentChanged;
+  final ValueChanged<String> onAssignmentDeleted;
 
   @override
   State<MonthlyCalendarView> createState() => _MonthlyCalendarViewState();
@@ -37,7 +39,9 @@ class _MonthlyCalendarViewState extends State<MonthlyCalendarView> {
     _selectedDate = DateTime(now.year, now.month, now.day);
 
     _focusedDay = _selectedDate;
-    _assignments = widget.assignments.toList();
+    _assignments = widget.assignments
+        .where((assignment) => !assignment.isCompleted)
+        .toList();
   }
 
   bool _isSameDay(DateTime first, DateTime second) =>
@@ -46,13 +50,29 @@ class _MonthlyCalendarViewState extends State<MonthlyCalendarView> {
       first.day == second.day;
 
   Future<void> _openAssignment(AssignmentItem assignment) async {
-    final updatedAssignment = await Navigator.push<AssignmentItem>(
+    final result = await Navigator.push<AssignmentDetailResult>(
       context,
       MaterialPageRoute(
         builder: (_) => AssignmentDetailScreen(assignment: assignment),
       ),
     );
-    if (updatedAssignment == null || !mounted) return;
+    if (result == null || !mounted) return;
+    if (result.action == AssignmentDetailAction.deleted) {
+      setState(() {
+        _assignments.removeWhere((item) => item.id == assignment.id);
+      });
+      widget.onAssignmentDeleted(assignment.id);
+      return;
+    }
+    final updatedAssignment = result.assignment;
+    if (updatedAssignment == null) return;
+    if (result.action == AssignmentDetailAction.finished) {
+      setState(() {
+        _assignments.removeWhere((item) => item.id == assignment.id);
+      });
+      widget.onAssignmentChanged(updatedAssignment);
+      return;
+    }
     final index = _assignments.indexWhere(
       (item) => item.id == updatedAssignment.id,
     );

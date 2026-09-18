@@ -1,5 +1,6 @@
 import 'package:app3/main.dart';
 import 'package:app3/models/app_data_store.dart';
+import 'package:app3/models/assignment_item.dart';
 import 'package:app3/screens/assignments_screen.dart';
 import 'package:app3/screens/folders_screen.dart';
 import 'package:app3/screens/note_editor_screen.dart';
@@ -205,6 +206,62 @@ void main() {
     expect(find.text('Calendar'), findsOneWidget);
     expect(find.byKey(const Key('monthly-calendar')), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
+  });
+
+  testWidgets('finishes and deletes assignments from their details', (
+    tester,
+  ) async {
+    final store = AppDataStore();
+    final dueDate = DateTime.now().add(const Duration(hours: 1));
+    store.addAssignment(
+      AssignmentItem(
+        id: 'finish-me',
+        title: 'Finish me',
+        course: 'Biology',
+        requirements: '',
+        dueDate: dueDate,
+        colorValue: 0xff183b66,
+      ),
+    );
+    store.addAssignment(
+      AssignmentItem(
+        id: 'delete-me',
+        title: 'Delete me',
+        course: 'History',
+        requirements: '',
+        dueDate: dueDate,
+        colorValue: 0xff183b66,
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AssignmentsScreen(store: store)));
+
+    await tester.tap(find.text('Finish me'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('finish-assignment-button')), findsOneWidget);
+    expect(find.byKey(const Key('delete-assignment-button')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('finish-assignment-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-finish-assignment')));
+    await tester.pumpAndSettle();
+    expect(find.text('Previous assignments'), findsOneWidget);
+    expect(find.text('Finish me'), findsOneWidget);
+    expect(
+      store.assignments
+          .singleWhere((item) => item.id == 'finish-me')
+          .isCompleted,
+      isTrue,
+    );
+
+    await tester.tap(find.text('Delete me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-assignment-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-assignment')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete me'), findsNothing);
+    expect(store.assignments, hasLength(1));
+    expect(store.assignments.single.id, 'finish-me');
   });
 
   testWidgets('warns before leaving an unsaved note', (tester) async {

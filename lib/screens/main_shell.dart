@@ -53,13 +53,21 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> _openAssignment(AssignmentItem assignment) async {
     _clearSearch();
-    final updated = await Navigator.push<AssignmentItem>(
+    final result = await Navigator.push<AssignmentDetailResult>(
       context,
       MaterialPageRoute(
         builder: (_) => AssignmentDetailScreen(assignment: assignment),
       ),
     );
-    if (updated != null) _store.updateAssignment(updated);
+    if (result == null) return;
+    final updated = result.assignment;
+    if ((result.action == AssignmentDetailAction.updated ||
+            result.action == AssignmentDetailAction.finished) &&
+        updated != null) {
+      _store.updateAssignment(updated);
+    } else {
+      _store.deleteAssignment(assignment.id);
+    }
   }
 
   Future<void> _openNote(NoteItem note) async {

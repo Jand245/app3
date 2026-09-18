@@ -67,6 +67,9 @@ class AppDataStore extends ChangeNotifier {
           requirements: assignment['requirements'] as String? ?? '',
           dueDate: DateTime.parse(assignment['dueDate'] as String),
           colorValue: assignment['colorValue'] as int? ?? 0xff3f51b5,
+          completedAt: assignment['completedAt'] == null
+              ? null
+              : DateTime.parse(assignment['completedAt'] as String),
           attachments: (assignment['attachments'] as List? ?? const []).map((
             value,
           ) {
@@ -151,6 +154,7 @@ class AppDataStore extends ChangeNotifier {
           'requirements': assignment.requirements,
           'dueDate': assignment.dueDate.toIso8601String(),
           'colorValue': assignment.colorValue,
+          'completedAt': assignment.completedAt?.toIso8601String(),
           'attachments': [
             for (final attachment in assignment.attachments)
               {'name': attachment.name, 'path': attachment.path},
@@ -241,6 +245,11 @@ class AppDataStore extends ChangeNotifier {
     final index = assignments.indexWhere((item) => item.id == assignment.id);
     if (index == -1) return;
     assignments[index] = assignment;
+    notifyListeners();
+  }
+
+  void deleteAssignment(String assignmentId) {
+    assignments.removeWhere((assignment) => assignment.id == assignmentId);
     notifyListeners();
   }
 

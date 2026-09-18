@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'models/app_data_store.dart';
 import 'models/local_data_storage.dart';
 import 'screens/main_shell.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,10 +36,7 @@ class NotesApp extends StatelessWidget {
     return MaterialApp(
       title: 'Notes & Assignments',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       home: MainShell(store: store),
     );
   }

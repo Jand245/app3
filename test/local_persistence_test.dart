@@ -32,6 +32,7 @@ void main() {
         requirements: 'One page',
         dueDate: DateTime(2026, 10, 1, 17, 30),
         colorValue: 0xff123456,
+        completedAt: DateTime(2026, 9, 30, 14, 15),
         attachments: const [
           AssignmentAttachment(name: 'outline.pdf', path: '/tmp/outline.pdf'),
         ],
@@ -46,6 +47,10 @@ void main() {
     expect(restored.notes.single.body, 'Build a notes app');
     expect(restored.recentNotes.single.title, 'Idea');
     expect(restored.assignments.single.dueDate, DateTime(2026, 10, 1, 17, 30));
+    expect(
+      restored.assignments.single.completedAt,
+      DateTime(2026, 9, 30, 14, 15),
+    );
     expect(restored.assignments.single.attachments.single.name, 'outline.pdf');
     expect(restored.addFolder('Math', null).id, 'folder-3');
     await restored.flush();
