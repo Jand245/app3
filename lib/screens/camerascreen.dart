@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,7 +12,8 @@ class CameraScreen extends StatefulWidget {
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver {
+class _CameraScreenState extends State<CameraScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   List<CameraDescription> _cameras = [];
   bool _isInitialized = false;
@@ -64,7 +66,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   Future<void> _takePicture() async {
     final controller = _controller;
-    if (controller == null || !controller.value.isInitialized || _isTakingPicture) {
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        _isTakingPicture) {
       return;
     }
 
@@ -125,7 +129,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   child: _isTakingPicture
                       ? const Padding(
                           padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Colors.white,
+                          ),
                         )
                       : null,
                 ),

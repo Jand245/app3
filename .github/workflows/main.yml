@@ -37,6 +37,11 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install Android NDK
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "ndk;28.2.13676358"
+
       - name: Get dependencies
         run: flutter pub get
 
@@ -68,6 +73,10 @@ jobs:
           name: web-build
           path: build/web
           if-no-files-found: error
+
+      - name: Configure GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
 
       - name: Upload GitHub Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
