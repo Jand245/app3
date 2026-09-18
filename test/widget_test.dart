@@ -3,10 +3,20 @@ import 'package:app3/models/app_data_store.dart';
 import 'package:app3/screens/assignments_screen.dart';
 import 'package:app3/screens/folders_screen.dart';
 import 'package:app3/screens/note_editor_screen.dart';
+import 'package:app3/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('uses the purple and gold app palette', (tester) async {
+    await tester.pumpWidget(const NotesApp());
+
+    final theme = Theme.of(tester.element(find.text('Home').first));
+    expect(theme.colorScheme.primary, AppTheme.purple);
+    expect(theme.colorScheme.secondary, AppTheme.gold);
+    expect(theme.scaffoldBackgroundColor, AppTheme.background);
+  });
+
   testWidgets('shows the home page when the app starts', (tester) async {
     await tester.pumpWidget(const NotesApp());
 
@@ -14,6 +24,134 @@ void main() {
     expect(find.text('Due Soon'), findsOneWidget);
     expect(find.text('Recent notes'), findsOneWidget);
     expect(find.text('Search assignments, folders, and notes'), findsOneWidget);
+  });
+
+  testWidgets('home quick note opens blank and does not create on exit', (
+    tester,
+  ) async {
+    final store = AppDataStore();
+    await tester.pumpWidget(NotesApp(store: store));
+
+    final button = tester.widget<FloatingActionButton>(
+      find.byKey(const Key('home-new-note-button')),
+    );
+    expect(button.backgroundColor, AppTheme.gold);
+    await tester.tap(find.byKey(const Key('home-new-note-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('New note'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('note-title-field')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('note-body-field')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(store.notes, isEmpty);
+    expect(store.folders, isEmpty);
+  });
+
+  testWidgets('home quick note saves into one Unfiled folder', (tester) async {
+    final store = AppDataStore();
+    await tester.pumpWidget(NotesApp(store: store));
+
+    for (final body in ['First idea', 'Second idea']) {
+      await tester.tap(find.byKey(const Key('home-new-note-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('note-body-field')), body);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(store.folders, hasLength(1));
+    expect(store.folders.single.name, 'Unfiled');
+    expect(store.notes, hasLength(2));
+    expect(
+      store.notes.every((note) => note.folderId == store.folders.single.id),
+      isTrue,
+    );
+    expect(store.notes.first.title, 'Untitled note');
+  });
+
+  testWidgets('home quick note saves typed content when leaving editor', (
+    tester,
+  ) async {
+    final store = AppDataStore();
+    await tester.pumpWidget(NotesApp(store: store));
+
+    await tester.tap(find.byKey(const Key('home-new-note-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('note-title-field')),
+      'Quick thought',
+    );
+    await tester.pump();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(store.notes.single.title, 'Quick thought');
+    expect(store.folders.single.name, 'Unfiled');
+  });
+
+  testWidgets('saving a blank Home note leaves no Unfiled folder', (
+    tester,
+  ) async {
+    final store = AppDataStore();
+    await tester.pumpWidget(NotesApp(store: store));
+
+    await tester.tap(find.byKey(const Key('home-new-note-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(store.notes, isEmpty);
+    expect(store.folders, isEmpty);
+  });
+
+  testWidgets('Unfiled note can move into a nested folder without a copy', (
+    tester,
+  ) async {
+    final store = AppDataStore();
+    store.addUnfiledNote('Quick idea', 'Remember this');
+    final originalId = store.notes.single.id;
+    final course = store.addFolder('CSC 4103', null);
+    final project = store.addFolder('Project', course.id);
+    await tester.pumpWidget(MaterialApp(home: FoldersScreen(store: store)));
+
+    expect(find.text('Unfiled'), findsOneWidget);
+    expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
+    await tester.tap(find.text('Unfiled'));
+    await tester.pumpAndSettle();
+    expect(find.text('Quick idea'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Note options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move to folder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CSC 4103 / Project'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quick idea'), findsNothing);
+    expect(store.notes, hasLength(1));
+    expect(store.notes.single.id, originalId);
+    expect(store.notes.single.folderId, project.id);
+
+    await tester.tap(find.byTooltip('Back to parent folder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CSC 4103'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Project'));
+    await tester.pumpAndSettle();
+    expect(find.text('Quick idea'), findsOneWidget);
   });
 
   testWidgets('moves between the main pages', (tester) async {

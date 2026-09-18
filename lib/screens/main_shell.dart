@@ -80,6 +80,17 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  Future<void> _createQuickNote() async {
+    final result = await Navigator.push<NoteEditorResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NoteEditorScreen(saveOnExit: true),
+      ),
+    );
+    if (!mounted || result == null || !result.hasContent) return;
+    _store.addUnfiledNote(result.title, result.body);
+  }
+
   void _openFolder(Folder folder) {
     _clearSearch();
     setState(() => _selectedIndex = 1);
@@ -95,6 +106,7 @@ class _MainShellState extends State<MainShell> {
         store: _store,
         onOpenAssignment: _openAssignment,
         onOpenNote: _openNote,
+        onCreateNote: _createQuickNote,
       ),
       FoldersScreen(key: _foldersKey, store: _store),
       AssignmentsScreen(store: _store),

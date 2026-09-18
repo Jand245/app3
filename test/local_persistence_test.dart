@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:app3/models/app_data_store.dart';
 import 'package:app3/models/assignment_item.dart';
 import 'package:app3/models/local_data_storage.dart';
+import 'package:app3/models/note_item.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -71,4 +72,47 @@ void main() {
     await expectLater(AppDataStore.load(storage), throwsFormatException);
     expect(await storage.read(), 'not json');
   });
+
+  test('quick notes and their Unfiled folder survive reload', () async {
+    final store = await AppDataStore.load(storage);
+    store.addUnfiledNote('  ', '  ');
+    expect(store.folders, isEmpty);
+    store.addUnfiledNote('Idea', 'Remember this');
+    await store.flush();
+    store.dispose();
+
+    final restored = await AppDataStore.load(storage);
+    expect(restored.folders.single.name, 'Unfiled');
+    expect(restored.notes.single.title, 'Idea');
+    expect(restored.notes.single.folderId, restored.folders.single.id);
+    restored.dispose();
+  });
+
+  test(
+    'moving an Unfiled note persists its new folder without duplication',
+    () async {
+      final store = await AppDataStore.load(storage);
+      store.addUnfiledNote('Quick idea', 'Remember this');
+      final original = store.notes.single;
+      final course = store.addFolder('CSC 4103', null);
+      final project = store.addFolder('Project', course.id);
+      store.updateNote(
+        NoteItem(
+          id: original.id,
+          folderId: project.id,
+          title: original.title,
+          body: original.body,
+        ),
+      );
+      await store.flush();
+      store.dispose();
+
+      final restored = await AppDataStore.load(storage);
+      expect(restored.notes, hasLength(1));
+      expect(restored.notes.single.id, original.id);
+      expect(restored.notes.single.folderId, project.id);
+      expect(restored.folderPath(project.id), 'CSC 4103 / Project');
+      restored.dispose();
+    },
+  );
 }

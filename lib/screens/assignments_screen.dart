@@ -120,7 +120,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
     return Scaffold(
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 96),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
         children: [
           Text(
             'Assignments',
@@ -142,6 +142,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('create-assignment-button'),
+        heroTag: 'create-assignment',
         onPressed: _createAssignment,
         icon: const Icon(Icons.add),
         label: const Text('Create assignment'),

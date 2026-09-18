@@ -7,7 +7,7 @@ import 'note_editor_screen.dart';
 
 enum _FolderAction { rename, delete }
 
-enum _NoteAction { edit, delete }
+enum _NoteAction { edit, move, delete }
 
 class FoldersScreen extends StatefulWidget {
   const FoldersScreen({required this.store, super.key});
@@ -158,6 +158,45 @@ class FoldersScreenState extends State<FoldersScreen> {
     }
   }
 
+  Future<void> _moveNote(NoteItem note) async {
+    final destinations = widget.store.folders
+        .where((folder) => folder.id != note.folderId)
+        .toList();
+    final destination = await showDialog<Folder>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Move to folder'),
+        children: [
+          if (destinations.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Text('Create another folder before moving this note.'),
+            )
+          else
+            for (final folder in destinations)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, folder),
+                child: Text(widget.store.folderPath(folder.id)),
+              ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (destination == null || !mounted) return;
+
+    widget.store.updateNote(
+      NoteItem(
+        id: note.id,
+        folderId: destination.id,
+        title: note.title,
+        body: note.body,
+      ),
+    );
+  }
+
   Future<void> _handleFolderAction(_FolderAction action, Folder folder) async {
     switch (action) {
       case _FolderAction.rename:
@@ -171,6 +210,8 @@ class FoldersScreenState extends State<FoldersScreen> {
     switch (action) {
       case _NoteAction.edit:
         await _editNote(note);
+      case _NoteAction.move:
+        await _moveNote(note);
       case _NoteAction.delete:
         await _deleteNote(note);
     }
@@ -237,6 +278,7 @@ class FoldersScreenState extends State<FoldersScreen> {
       ),
       floatingActionButton: currentFolder == null
           ? FloatingActionButton.extended(
+              heroTag: 'new-root-folder',
               onPressed: _createFolder,
               icon: const Icon(Icons.create_new_folder_outlined),
               label: const Text('New folder'),
@@ -254,6 +296,8 @@ class FoldersScreenState extends State<FoldersScreen> {
                 FloatingActionButton.extended(
                   heroTag: 'new-note',
                   onPressed: _createNote,
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
                   icon: const Icon(Icons.note_add_outlined),
                   label: const Text('New note'),
                 ),
@@ -305,7 +349,11 @@ class FoldersScreenState extends State<FoldersScreen> {
     return ListTile(
       key: ValueKey(folder.id),
       onTap: () => _openFolder(folder),
-      leading: const Icon(Icons.folder_outlined),
+      leading: Icon(
+        folder.parentId == null && folder.name == 'Unfiled'
+            ? Icons.inbox_outlined
+            : Icons.folder_outlined,
+      ),
       title: Text(folder.name),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -337,6 +385,7 @@ class FoldersScreenState extends State<FoldersScreen> {
         onSelected: (action) => _handleNoteAction(action, note),
         itemBuilder: (_) => const [
           PopupMenuItem(value: _NoteAction.edit, child: Text('Edit')),
+          PopupMenuItem(value: _NoteAction.move, child: Text('Move to folder')),
           PopupMenuItem(value: _NoteAction.delete, child: Text('Delete')),
         ],
       ),

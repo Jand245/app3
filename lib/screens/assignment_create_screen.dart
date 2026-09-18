@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models/assignment_item.dart';
+import '../theme/app_theme.dart';
 
 class AssignmentCreateScreen extends StatefulWidget {
   const AssignmentCreateScreen({this.assignment, super.key});
@@ -13,12 +14,12 @@ class AssignmentCreateScreen extends StatefulWidget {
 }
 
 class _AssignmentCreateScreenState extends State<AssignmentCreateScreen> {
-  static const _colorChoices = [
-    Colors.indigo,
+  List<Color> _colorChoices(BuildContext context) => [
+    Theme.of(context).colorScheme.primary,
     Colors.blue,
     Colors.teal,
     Colors.green,
-    Colors.amber,
+    Theme.of(context).colorScheme.secondary,
     Colors.orange,
     Colors.red,
     Colors.pink,
@@ -49,7 +50,7 @@ class _AssignmentCreateScreenState extends State<AssignmentCreateScreen> {
         : TimeOfDay.fromDateTime(assignment.dueDate);
 
     _selectedColor = assignment == null
-        ? Colors.indigo
+        ? AppTheme.purple
         : Color(assignment.colorValue);
 
     if (assignment != null) {
@@ -207,7 +208,7 @@ class _AssignmentCreateScreenState extends State<AssignmentCreateScreen> {
             Wrap(
               spacing: 12,
               runSpacing: 12,
-              children: _colorChoices.map((color) {
+              children: _colorChoices(context).map((color) {
                 final isSelected = color == _selectedColor;
 
                 return InkWell(
@@ -229,7 +230,14 @@ class _AssignmentCreateScreenState extends State<AssignmentCreateScreen> {
                       ),
                     ),
                     child: isSelected
-                        ? const Icon(Icons.check, color: Colors.white)
+                        ? Icon(
+                            Icons.check,
+                            color:
+                                ThemeData.estimateBrightnessForColor(color) ==
+                                    Brightness.dark
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurface,
+                          )
                         : null,
                   ),
                 );

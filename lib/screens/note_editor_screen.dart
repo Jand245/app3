@@ -3,16 +3,22 @@ import 'package:flutter/material.dart';
 import '../models/note_item.dart';
 
 class NoteEditorResult {
-  const NoteEditorResult({required this.title, required this.body});
+  const NoteEditorResult({
+    required this.title,
+    required this.body,
+    required this.hasContent,
+  });
 
   final String title;
   final String body;
+  final bool hasContent;
 }
 
 class NoteEditorScreen extends StatefulWidget {
-  const NoteEditorScreen({this.note, super.key});
+  const NoteEditorScreen({this.note, this.saveOnExit = false, super.key});
 
   final NoteItem? note;
+  final bool saveOnExit;
 
   @override
   State<NoteEditorScreen> createState() => _NoteEditorScreenState();
@@ -28,6 +34,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   bool get _hasUnsavedChanges =>
       _titleController.text != _initialTitle ||
       _bodyController.text != _initialBody;
+
+  bool get _hasContent =>
+      _titleController.text.trim().isNotEmpty ||
+      _bodyController.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -54,7 +64,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   }
 
   Future<void> _handlePop(bool didPop, NoteEditorResult? result) async {
-    if (didPop || !_hasUnsavedChanges) return;
+    if (didPop) return;
+    if (widget.saveOnExit) {
+      if (_hasContent) _save();
+      return;
+    }
+    if (!_hasUnsavedChanges) return;
     final shouldLeave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -86,6 +101,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       NoteEditorResult(
         title: title.isEmpty ? 'Untitled note' : title,
         body: _bodyController.text,
+        hasContent: _hasContent,
       ),
     );
   }
@@ -93,7 +109,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope<NoteEditorResult>(
-      canPop: _allowPop || !_hasUnsavedChanges,
+      canPop:
+          _allowPop || (widget.saveOnExit ? !_hasContent : !_hasUnsavedChanges),
       onPopInvokedWithResult: _handlePop,
       child: Scaffold(
         appBar: AppBar(

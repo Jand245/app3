@@ -194,6 +194,28 @@ class AppDataStore extends ChangeNotifier {
     markNoteAccessed(note.id);
   }
 
+  void addUnfiledNote(String title, String body) {
+    if (title.trim().isEmpty && body.trim().isEmpty) return;
+
+    final existing = folders
+        .where((folder) => folder.parentId == null && folder.name == 'Unfiled')
+        .firstOrNull;
+    final unfiled =
+        existing ?? Folder(id: 'folder-${_nextFolderId++}', name: 'Unfiled');
+    if (existing == null) {
+      folders.add(unfiled);
+    }
+
+    final note = NoteItem(
+      id: 'note-${_nextNoteId++}',
+      folderId: unfiled.id,
+      title: title,
+      body: body,
+    );
+    notes.add(note);
+    markNoteAccessed(note.id);
+  }
+
   void updateNote(NoteItem note) {
     final index = notes.indexWhere((item) => item.id == note.id);
     if (index == -1) return;
