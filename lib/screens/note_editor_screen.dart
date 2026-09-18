@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../models/note_item.dart';
-import 'camera_screen.dart';
+import 'camerascreen.dart';
 
 class NoteEditorResult {
   const NoteEditorResult({
