@@ -7,7 +7,7 @@ import 'screens/main_shell.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    final storage = await JsonFileStorage.inDocumentsDirectory();
+    final storage = SharedPreferencesStorage();
     final store = await AppDataStore.load(storage);
     runApp(NotesApp(store: store));
   } catch (error) {

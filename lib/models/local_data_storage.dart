@@ -1,32 +1,19 @@
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class LocalDataStorage {
   Future<String?> read();
   Future<void> write(String contents);
 }
 
-class JsonFileStorage implements LocalDataStorage {
-  JsonFileStorage(this.file);
+class SharedPreferencesStorage implements LocalDataStorage {
+  SharedPreferencesStorage({this.key = 'app_data'});
 
-  final File file;
-
-  static Future<JsonFileStorage> inDocumentsDirectory() async {
-    final directory = await getApplicationDocumentsDirectory();
-    return JsonFileStorage(File('${directory.path}/app_data.json'));
-  }
+  final String key;
+  final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
 
   @override
-  Future<String?> read() async {
-    if (!await file.exists()) return null;
-    return file.readAsString();
-  }
+  Future<String?> read() => _preferences.getString(key);
 
   @override
-  Future<void> write(String contents) async {
-    final temporary = File('${file.path}.tmp');
-    await temporary.writeAsString(contents, flush: true);
-    await temporary.rename(file.path);
-  }
+  Future<void> write(String contents) => _preferences.setString(key, contents);
 }

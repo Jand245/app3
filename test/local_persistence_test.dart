@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:app3/models/app_data_store.dart';
 import 'package:app3/models/assignment_item.dart';
-import 'package:app3/models/local_data_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/json_file_storage.dart';
 
 void main() {
   late Directory directory;
@@ -49,6 +50,45 @@ void main() {
     expect(restored.addFolder('Math', null).id, 'folder-3');
     await restored.flush();
     restored.dispose();
+  });
+
+  test('first launch creates a valid empty data file', () async {
+    expect(await storage.read(), isNull);
+
+    final store = await AppDataStore.load(storage);
+
+    expect(store.folders, isEmpty);
+    expect(store.notes, isEmpty);
+    expect(store.assignments, isEmpty);
+    expect(await storage.read(), contains('"version":1'));
+    store.dispose();
+  });
+
+  test('older version-one data receives defaults for newer fields', () async {
+    await storage.write('''
+      {
+        "version": 1,
+        "folders": [],
+        "notes": [],
+        "assignments": [
+          {
+            "id": "assignment-1",
+            "title": "Older assignment",
+            "course": "History",
+            "dueDate": "2026-09-20T17:00:00.000"
+          }
+        ]
+      }
+    ''');
+
+    final store = await AppDataStore.load(storage);
+
+    expect(store.assignments.single.requirements, isEmpty);
+    expect(store.assignments.single.attachments, isEmpty);
+    expect(store.assignments.single.colorValue, 0xff3f51b5);
+    expect(store.addFolder('First folder', null).id, 'folder-1');
+    await store.flush();
+    store.dispose();
   });
 
   test('deleting a folder also removes saved descendants and notes', () async {
