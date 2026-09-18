@@ -4,10 +4,14 @@ import '../models/note_item.dart';
 import 'camera_screen.dart';
 
 class NoteEditorResult {
-  const NoteEditorResult({required this.title, required this.body});
-
+  cconst NoteEditorResult({
+    required this.title,
+    required this.body,
+    this.imagePaths = const [],
+  });
   final String title;
   final String body;
+  final List<String> imagePaths;
 }
 
 class NoteEditorScreen extends StatefulWidget {
@@ -46,6 +50,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       NoteEditorResult(
         title: title.isEmpty ? 'Untitled note' : title,
         body: _bodyController.text,
+        imagePaths: _imagePaths,
       ),
     );
   }

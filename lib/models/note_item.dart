@@ -4,7 +4,7 @@ class NoteItem {
     required this.folderId,
     required this.title,
     required this.body,
-    required this.imagePaths,
+    this.imagePaths = const [],
   });
 
   final String id;
