@@ -12,7 +12,9 @@ import 'note_editor_screen.dart';
 import 'search_screen.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  const MainShell({this.store, super.key});
+
+  final AppDataStore? store;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -20,7 +22,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
-  final _store = AppDataStore();
+  late final AppDataStore _store;
   final _searchController = TextEditingController();
   final _foldersKey = GlobalKey<FoldersScreenState>();
   String _query = '';
@@ -28,6 +30,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
+    _store = widget.store ?? AppDataStore();
     _store.addListener(_handleStoreChanged);
   }
 
@@ -129,6 +132,18 @@ class _MainShellState extends State<MainShell> {
                       onOpenNote: _openNote,
                     ),
             ),
+            if (_store.saveError != null)
+              MaterialBanner(
+                content: const Text(
+                  'Changes could not be saved on this device.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: _store.retrySave,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

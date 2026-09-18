@@ -1,12 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/note_item.dart';
+import 'camerascreen.dart';
 
 class NoteEditorResult {
-  const NoteEditorResult({required this.title, required this.body});
+  const NoteEditorResult({
+    required this.title,
+    required this.body,
+    this.imagePaths = const [],
+  });
 
   final String title;
   final String body;
+  final List<String> imagePaths;
 }
 
 class NoteEditorScreen extends StatefulWidget {
@@ -21,6 +29,7 @@ class NoteEditorScreen extends StatefulWidget {
 class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
+  late final List<String> _imagePaths;
   late final String _initialTitle;
   late final String _initialBody;
   bool _allowPop = false;
@@ -34,10 +43,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     super.initState();
     _initialTitle = widget.note?.title ?? '';
     _initialBody = widget.note?.body ?? '';
+
     _titleController = TextEditingController(text: _initialTitle)
       ..addListener(_handleTextChanged);
     _bodyController = TextEditingController(text: _initialBody)
       ..addListener(_handleTextChanged);
+
+    _imagePaths = List<String>.from(widget.note?.imagePaths ?? const []);
   }
 
   @override
@@ -86,6 +98,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       NoteEditorResult(
         title: title.isEmpty ? 'Untitled note' : title,
         body: _bodyController.text,
+        imagePaths: _imagePaths,
       ),
     );
   }
@@ -99,6 +112,22 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         appBar: AppBar(
           title: Text(widget.note == null ? 'New note' : 'Edit note'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.camera_alt),
+              tooltip: 'Add photo',
+              onPressed: () async {
+                final path = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CameraScreen()),
+                );
+
+                if (path != null) {
+                  setState(() {
+                    _imagePaths.add(path);
+                  });
+                }
+              },
+            ),
             TextButton(onPressed: _save, child: const Text('Save')),
             const SizedBox(width: 8),
           ],
@@ -132,6 +161,55 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 ),
               ),
             ),
+
+            // Photo thumbnails (only shows when there's at least one image)
+            if (_imagePaths.isNotEmpty)
+              SizedBox(
+                height: 100,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  itemCount: _imagePaths.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) => Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(_imagePaths[index]),
+                          width: 84,
+                          height: 84,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _imagePaths.removeAt(index)),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: TextField(
