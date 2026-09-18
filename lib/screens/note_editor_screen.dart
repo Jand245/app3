@@ -1,14 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/note_item.dart';
 import 'camera_screen.dart';
 
 class NoteEditorResult {
-  cconst NoteEditorResult({
+  const NoteEditorResult({
     required this.title,
     required this.body,
     this.imagePaths = const [],
   });
+
   final String title;
   final String body;
   final List<String> imagePaths;
@@ -26,7 +29,7 @@ class NoteEditorScreen extends StatefulWidget {
 class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
-  late final List<String> _imagePaths; 
+  late final List<String> _imagePaths;
 
   @override
   void initState() {
@@ -59,26 +62,27 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-  title: Text(widget.note == null ? 'New note' : 'Edit note'),
-  actions: [
-    IconButton(   
-      icon: const Icon(Icons.camera_alt),
-      onPressed: () async {
-        final path = await Navigator.push<String>(
-          context,
-          MaterialPageRoute(builder: (_) => const CameraScreen()),
-        );
-        if (path != null) {
-          setState(() {
-            _imagePaths.add(path);
-          });
-        }
-      },
-    ),
-    TextButton(onPressed: _save, child: const Text('Save')),
-    const SizedBox(width: 8),
-  ],
-  ),
+        title: Text(widget.note == null ? 'New note' : 'Edit note'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.camera_alt),
+            tooltip: 'Add photo',
+            onPressed: () async {
+              final path = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(builder: (_) => const CameraScreen()),
+              );
+              if (path != null) {
+                setState(() {
+                  _imagePaths.add(path);
+                });
+              }
+            },
+          ),
+          TextButton(onPressed: _save, child: const Text('Save')),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Column(
         children: [
           Material(
@@ -108,6 +112,52 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               ),
             ),
           ),
+
+          // Photo thumbnails (only shows when there's at least one image)
+          if (_imagePaths.isNotEmpty)
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: _imagePaths.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(_imagePaths[index]),
+                        width: 84,
+                        height: 84,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _imagePaths.removeAt(index)),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(2),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Title field
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: TextField(
@@ -121,7 +171,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               textCapitalization: TextCapitalization.sentences,
             ),
           ),
+
           const Divider(height: 1),
+
+          // Body field
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(20),
